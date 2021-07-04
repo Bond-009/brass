@@ -36,7 +36,6 @@ Paul Licameli split from AudacityProject.cpp
 #include "widgets/ProgressDialog.h"
 #include "wxFileNameWrapper.h"
 #include "xml/XMLFileReader.h"
-#include "SentryHelper.h"
 
 // Don't change this unless the file format changes
 // in an irrevocable way
@@ -80,10 +79,10 @@ static const int ProjectFileVersion = PACK(3, 0, 0, 0);
 
 // Navigation:
 //
-// Bindings are marked out in the code by, e.g. 
+// Bindings are marked out in the code by, e.g.
 // BIND SQL sampleblocks
 // A search for "BIND SQL" will find all bindings.
-// A search for "SQL sampleblocks" will find all SQL related 
+// A search for "SQL sampleblocks" will find all SQL related
 // to sampleblocks.
 
 static const char *ProjectFileSchema =
@@ -104,7 +103,7 @@ static const char *ProjectFileSchema =
    // This is all opaque to SQLite.  It just sees two
    // big binary blobs.
    // There is no limit to document blob size.
-   // dict will be smallish, with an entry for each 
+   // dict will be smallish, with an entry for each
    // kind of field.
    "CREATE TABLE IF NOT EXISTS <schema>.project"
    "("
@@ -124,7 +123,7 @@ static const char *ProjectFileSchema =
    // This is all opaque to SQLite.  It just sees two
    // big binary blobs.
    // There is no limit to document blob size.
-   // dict will be smallish, with an entry for each 
+   // dict will be smallish, with an entry for each
    // kind of field.
    "CREATE TABLE IF NOT EXISTS <schema>.autosave"
    "("
@@ -138,7 +137,7 @@ static const char *ProjectFileSchema =
    // The blocks may be partially empty.
    // The quantity of valid data in the blocks is
    // provided in the project blob.
-   // 
+   //
    // sampleformat specifies the format of the samples stored.
    //
    // blockID is a 64 bit number.
@@ -248,7 +247,7 @@ TitleRestorer::TitleRestorer(
          sProjNumber.Printf(
             _("[Project %02i] "), project.GetProjectNumber() + 1 );
          RefreshAllTitles( true );
-      } 
+      }
    }
    else
       UnnamedCount = 0;
@@ -309,7 +308,6 @@ DBConnection &ProjectFileIO::GetConnection()
       {
          throw SimpleMessageBoxException
          {
-            ExceptionType::Internal,
             XO("Failed to open the project's database"),
             XO("Warning"),
             "Error:_Disk_full_or_not_writable"
@@ -513,9 +511,6 @@ int ProjectFileIO::Exec(const char *query, const ExecCB &callback)
 
    if (rc != SQLITE_ABORT && errmsg)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.query", query);
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-
       SetDBError(
          XO("Failed to execute a project file command:\n\n%s").Format(query),
          Verbatim(errmsg),
@@ -576,10 +571,6 @@ bool ProjectFileIO::GetBlob(const char *sql, wxMemoryBuffer &buffer)
    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
    if (rc != SQLITE_OK)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.query", sql);
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::GetBlob::prepare");
-
       SetDBError(
          XO("Unable to prepare project file command:\n\n%s").Format(sql)
       );
@@ -596,10 +587,6 @@ bool ProjectFileIO::GetBlob(const char *sql, wxMemoryBuffer &buffer)
 
    if (rc != SQLITE_ROW)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.query", sql);
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::GetBlob::step");
-
       SetDBError(
          XO("Failed to retrieve data from the project file.\nThe following command failed:\n\n%s").Format(sql)
       );
@@ -675,7 +662,7 @@ bool ProjectFileIO::CheckVersion()
       );
       return false;
    }
-   
+
    // Project file is older than ours, ask the user if it's okay to
    // upgrade.
    if (version < ProjectFileVersion)
@@ -742,9 +729,6 @@ bool ProjectFileIO::DeleteBlocks(const BlockIDs &blockids, bool complement)
    rc = sqlite3_create_function(db, "inset", 1, SQLITE_UTF8 | SQLITE_DETERMINISTIC, const_cast<void*>(p), InSet, nullptr, nullptr);
    if (rc != SQLITE_OK)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::DeleteBlocks::create_function");
-
       /* i18n-hint: An error message.  Don't translate inset or blockids.*/
       SetDBError(XO("Unable to add 'inset' function (can't verify blockids)"));
       return false;
@@ -759,10 +743,6 @@ bool ProjectFileIO::DeleteBlocks(const BlockIDs &blockids, bool complement)
    rc = sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
    if (rc != SQLITE_OK)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.query", sql.ToStdString());
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::GetBlob");
-
       if( rc==SQLITE_READONLY)
          /* i18n-hint: An error message.  Don't translate blockfiles.*/
          SetDBError(XO("Project is read only\n(Unable to work with the blockfiles)"));
@@ -872,10 +852,6 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
          // Only capture the error if there wasn't a previous error
          if (result != SQLITE_OK && (rc == SQLITE_DONE || rc == SQLITE_OK))
          {
-            ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-            ADD_EXCEPTION_CONTEXT(
-               "sqlite3.context", "ProjectGileIO::CopyTo.cleanup");
-
             SetDBError(
                XO("Failed to rollback transaction during import")
             );
@@ -891,7 +867,7 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
       }
    });
 
-   // Attach the destination database 
+   // Attach the destination database
    wxString sql;
    wxString dbName = destpath;
    // Bug 2793: Quotes in name need escaping for sqlite3.
@@ -949,10 +925,6 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
                               nullptr);
       if (rc != SQLITE_OK)
       {
-         ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-         ADD_EXCEPTION_CONTEXT(
-            "sqlite3.context", "ProjectGileIO::CopyTo.prepare");
-
          SetDBError(
             XO("Unable to prepare project file command:\n\n%s").Format(sql)
          );
@@ -983,10 +955,6 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
          rc = sqlite3_bind_int64(stmt, 1, blockid);
          if (rc != SQLITE_OK)
          {
-            ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-            ADD_EXCEPTION_CONTEXT(
-               "sqlite3.context", "ProjectGileIO::CopyTo.bind");
-
             SetDBError(
                XO("Failed to bind SQL parameter")
             );
@@ -998,10 +966,6 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
          rc = sqlite3_step(stmt);
          if (rc != SQLITE_DONE)
          {
-            ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-            ADD_EXCEPTION_CONTEXT(
-               "sqlite3.context", "ProjectGileIO::CopyTo.step");
-
             SetDBError(
                XO("Failed to update the project file.\nThe following command failed:\n\n%s").Format(sql)
             );
@@ -1011,10 +975,6 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
          // Reset statement to beginning
          if (sqlite3_reset(stmt) != SQLITE_OK)
          {
-            ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-            ADD_EXCEPTION_CONTEXT(
-               "sqlite3.context", "ProjectGileIO::CopyTo.reset");
-
             THROW_INCONSISTENCY_EXCEPTION;
          }
 
@@ -1045,9 +1005,6 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
    rc = sqlite3_exec(db, "DETACH DATABASE outbound;", nullptr, nullptr, nullptr);
    if (rc != SQLITE_OK)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::CopyTo::detach");
-
       SetDBError(
          XO("Destination project could not be detached")
       );
@@ -1078,7 +1035,7 @@ bool ProjectFileIO::ShouldCompact(const std::vector<const TrackList *> &tracks)
    // Get the number of blocks and total length from the project file.
    unsigned long long total = GetTotalUsage();
    unsigned long long blockcount = 0;
-   
+
    auto cb = [&blockcount](int cols, char **vals, char **)
    {
       // Convert
@@ -1317,7 +1274,7 @@ void ProjectFileIO::Compact(
             // PRL:  not clear what to do if the following fails, but the worst should
             // be, the project may reopen in its present state as a recovery file, not
             // at the last saved state.
-            // REVIEW: Could the autosave file be corrupt though at that point, and so 
+            // REVIEW: Could the autosave file be corrupt though at that point, and so
             // prevent recovery?
             // LLL: I believe Paul is correct since it's deleted with a single SQLite
             // transaction. The next time the file opens will just invoke recovery.
@@ -1639,7 +1596,7 @@ bool ProjectFileIO::HandleXMLTag(const wxChar *tag, const wxChar **attrs)
       ShowError(
          &window,
          XO("Can't open project file"),
-         msg, 
+         msg,
          "FAQ:Errors_opening_an_Audacity_project"
          );
 
@@ -1772,9 +1729,6 @@ bool ProjectFileIO::AutoSaveDelete(sqlite3 *db /* = nullptr */)
    rc = sqlite3_exec(db, "DELETE FROM autosave;", nullptr, nullptr, nullptr);
    if (rc != SQLITE_OK)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::AutoSaveDelete");
-
       SetDBError(
          XO("Failed to remove the autosave information from the project file.")
       );
@@ -1815,10 +1769,6 @@ bool ProjectFileIO::WriteDoc(const char *table,
    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
    if (rc != SQLITE_OK)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.query", sql);
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::WriteDoc::prepare");
-
       SetDBError(
          XO("Unable to prepare project file command:\n\n%s").Format(sql)
       );
@@ -1834,10 +1784,6 @@ bool ProjectFileIO::WriteDoc(const char *table,
    if (sqlite3_bind_blob(stmt, 1, dict.GetData(), dict.GetDataLen(), SQLITE_STATIC) ||
        sqlite3_bind_blob(stmt, 2, data.GetData(), data.GetDataLen(), SQLITE_STATIC))
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.query", sql);
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::WriteDoc::bind");
-
       SetDBError(
          XO("Unable to bind to blob")
       );
@@ -1847,10 +1793,6 @@ bool ProjectFileIO::WriteDoc(const char *table,
    rc = sqlite3_step(stmt);
    if (rc != SQLITE_DONE)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.query", sql);
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(rc));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::WriteDoc::step");
-
       SetDBError(
          XO("Failed to update the project file.\nThe following command failed:\n\n%s").Format(sql)
       );
@@ -1891,7 +1833,7 @@ bool ProjectFileIO::LoadProject(const FilePath &fileName, bool ignoreAutosave)
       // Error already set
       return false;
    }
- 
+
    // If we didn't have an autosave doc, load the project doc instead
    if (buffer.GetDataLen() == 0)
    {
@@ -1935,7 +1877,7 @@ bool ProjectFileIO::LoadProject(const FilePath &fileName, bool ignoreAutosave)
       }
 
       // Check for orphans blocks...sets mRecovered if any were deleted
-      
+
       auto blockids = WaveTrackFactory::Get( mProject )
          .GetSampleBlockFactory()
             ->GetActiveBlockIDs();
@@ -1947,7 +1889,7 @@ bool ProjectFileIO::LoadProject(const FilePath &fileName, bool ignoreAutosave)
             return false;
          }
       }
-   
+
       // Remember if we used autosave or not
       if (usedAutosave)
       {
@@ -2002,7 +1944,7 @@ bool ProjectFileIO::UpdateSaved(const TrackList *tracks)
    return true;
 }
 
-// REVIEW: This function is believed to report an error to the user in all cases 
+// REVIEW: This function is believed to report an error to the user in all cases
 // of failure.  Callers are believed not to need to do so if they receive 'false'.
 // LLL: All failures checks should now be displaying an error.
 bool ProjectFileIO::SaveProject(
@@ -2182,7 +2124,7 @@ bool ProjectFileIO::SaveProject(
       // saved database below.
       CloseProject();
 
-      // And make it the active project file 
+      // And make it the active project file
       UseConnection(std::move(newConn), fileName);
    }
    else
@@ -2317,8 +2259,7 @@ void ProjectFileIO::ShowError(wxWindow *parent,
                               const TranslatableString &message,
                               const wxString &helpPage)
 {
-   ShowExceptionDialog(parent, dlogTitle, message, helpPage, true,
-                   audacity::ToWString(GetLastLog()));
+   ShowErrorDialog(parent, dlogTitle, message, helpPage, true, audacity::ToWString(GetLastLog()));
 }
 
 const TranslatableString &ProjectFileIO::GetLastError() const
@@ -2452,9 +2393,6 @@ int64_t ProjectFileIO::GetDiskUsage(DBConnection &conn, SampleBlockID blockid /*
                     "SELECT rootpage FROM sqlite_master WHERE tbl_name = 'sampleblocks';");
    if (stmt == nullptr || sqlite3_step(stmt) != SQLITE_ROW)
    {
-      ADD_EXCEPTION_CONTEXT("sqlite3.rc", std::to_string(sqlite3_errcode(conn.DB())));
-      ADD_EXCEPTION_CONTEXT("sqlite3.context", "ProjectGileIO::GetDiskUsage");
-
       return 0;
    }
 

@@ -1519,7 +1519,7 @@ void ShowExportErrorDialog(wxString ErrorCode,
    TranslatableString message,
    const TranslatableString& caption)
 {
-   ShowExceptionDialog(nullptr,
+   ShowErrorDialog(nullptr,
                   caption,
                   message.Format( ErrorCode ),
                   "Error:_Unable_to_export" // URL.

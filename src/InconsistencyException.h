@@ -23,9 +23,7 @@
 class AUDACITY_DLL_API InconsistencyException final : public MessageBoxException
 {
 public:
-   InconsistencyException () 
-       : MessageBoxException{ ExceptionType::Internal, XO ("Internal Error") } 
-   {}
+   InconsistencyException() {}
 
    //! Don't call this directly but use @ref CONSTRUCT_INCONSISTENCY_EXCEPTION or @ref THROW_INCONSISTENCY_EXCEPTION
    explicit InconsistencyException(
@@ -33,8 +31,8 @@ public:
       const char *f, //!< function name supplied by preprocessor
       unsigned l //!< line number supplied by preprocessor
    )
-       : MessageBoxException { ExceptionType::Internal, XO("Internal Error") }
-       , func { fn }, file { f }, line { l }
+         : MessageBoxException{ XO("Internal Error") }
+         , func { fn }, file { f }, line { l }
    {}
 
    InconsistencyException(InconsistencyException&& that)
